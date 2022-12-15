@@ -1,0 +1,469 @@
+/** \page StaDbFormat Station Database Format(StaDb)
+
+
+\verbatim
+
+#------------------------------------------------------------------------------
+
+The Station Database format is an ASCII text file containing various 
+information about stations such as position, antenna configuration, and
+receiver configuration.
+
+General comments:
+
+Blank lines and lines starting with a '#' are ignored.
+
+Lines with a '#' treat everything after the # as meta data, except for POSTSEISMIC records
+
+Only the record identifier is case sensitive.
+
+The only record type that is not station-dependent is 'KEYWORDS:'. The
+KEYWORDS record must appear as the first non-comment line of the file. It
+has to be unique. Example, only allow STATE and ANT
+
+KEYWORDS: STATE ANT
+
+Each station can have many types of records.
+Of those records, 4 are required to return a "valid" station by default: 
+ID, ANT, RX, and STATE. However, otherwise, none of the records are required.
+
+The following records are less frequently used:
+SIGMAS, AGENCY, NETWORK, END, LINK, ANT*, ORIENTANT, ORIENTANT*, POSTSEISMIC*,
+SEASONAL_ITRF
+
+The first non-comment line of the file will contain the allowed record types.
+The first word of the first line of the file will be KEYWORDS.
+
+The reader will check that all line types are in KEYWORDS in order to both 
+eliminate typos and allow for future keywords which are not parsed.
+
+All non-comment lines other than the KEYWORDS line are sorted first by station
+identifier, then record type, and finally time. The sorting order of the record
+types follows the order in which the different record types are listed in the
+KEYWORDS line. An exception is made for STATE and END entries, which are 
+interlaced with each other in chronological order for each station,
+i.e. STATE and END are considered as equal for sorting purposes.
+
+ID records associate the station identifier with a monument identification 
+for the station as well as metadata. ID records are the only record which does
+not allow an epoch.
+
+All time dependent records (ones containing a date and time field) are valid
+from the record epoch till the next record of the same type. STATE records
+are the only exception and they may end their time of validity with and
+"END" record in addition to a STATE record.
+
+STATE records associate the station identifier with the site position and
+velocity at a given epoch. 
+
+ANT records associate the station identifier with the antenna type and the
+site vector from the monument to the nominal antenna reference location at a
+given epoch.  Other records beginning with ANT, such as ANTSLR, ANTDORIS, 
+or ANTVLBI are also allowed, but each must be specified in the KEYWORDS header.
+
+ORIENTANT* records allow specification of a non-up zenith vector or a non-north azimuth origin vector.  Like ANT records, they can also specify SLR, DORIS, etc. If this vector is missing, no alignment will be printed from staDb2TreeIn.
+
+RX records associate the station identifier with the receiver type of the
+site at a given epoch.
+
+SIGMAS records associate the station identifier with the site position
+and velocity formal errors at a given epoch.
+
+AGENCY records associate the station identifier with the agency responsible
+for maintaining the station at a given epoch.
+
+NETWORK records associate the station identifier with the largest geodetic network
+it belongs to at a given epoch.
+
+END records associate the station identifier with the end of validity of
+a STATE record. 
+
+POSTSEISMIC[EXP|LOG]_[E|N|V] records are terms which modify the position of a 
+station because of postseismic activity (note: all variants specified using 
+only "POSTSESIMIC" keyword at the top of the file)
+
+SEASONAL_ITRF records are terms which specify the 12 seasonal parameters used
+in the definition of ITRF2020
+
+LINK records are for informational purposes and are not used to determine
+location or antenna information. They are only used by scripts maintaining
+the other station database records, for instance from IGS site logs. This is useful 
+in cases where multiple receivers share infrastructure (e.g. antenna) but a sitelog
+is maintained for only one. 
+
+SYSTEMS records are for informational purposes and are not used to
+determine location or antenna information.  These records indicate the
+constellations tracked by the site.  Multiple constellations tracked
+are delimited by whitespace.  i.e. GPS GLO GAL BDS QZSS IRNSS
+
+The calendar date and time on a record is GPS time, counted continuously from 
+2000-01-01 11:59:47 UTC (2000-01-01 12:00:00 GPS).
+
+#------------------------------------------------------------------------------
+KEYWORDS line:
+
+This line needs to be the first non-comment line of the file.
+It needs to appear only once in the file.
+It begins with the word KEYWORDS. All words are upper case.
+The list of record types should be ordered in the order they will appear
+in the file.  The database "write" method will utilize this order.
+
+The reader will check that all line types are in KEYWORDS in order to both
+eliminate typos and allow for future keywords which are not parsed. Any
+KEYWORD not explicitly defined in the parser will be stored as "meta" text.
+
+A few examples: 
+
+KEYWORDS: ID STATE ANT RX 
+KEYWORDS: ID STATE ANT RX SIGMAS LINK
+KEYWORDS: ID STATE ANT RX AGENCY NETWORK SIGMAS END LINK SYSTEMS 
+
+#------------------------------------------------------------------------------
+ID Records:
+
+ID records associate the station identifiers with a monument identification 
+for the station and free format meta-data (typically the station city and/or
+country). A few examples:
+
+ADIS ID    31502M001 Addis Ababa, Addis Ababa, ETHIOPIA
+ADKS ID    UNKNOWN   Houston, Texas, USA
+ADRI ID    49637S001 Adrian, Michigan, United States
+
+Each field is whitespace delimited:
+
+Field 0: Station identifier (arbitrary string length)
+Field 1: Record key, must be 'ID'
+Field 2: Monument identification. This is an alpha-numeric monument identification.
+         This is typically the 9-character DOMES number or 'UNKNOWN'. This 
+         information is used to generate SINEX files.
+Field 3: Free-format description of station, typically the town and/or country
+         (including whitespace)
+
+If more than one ID record for a given station is found, the last one in the
+file is used.
+
+#------------------------------------------------------------------------------
+STATE Records:
+
+STATE records associate the station identifier with the site position and
+velocity at a given epoch. A few examples:
+
+NLIB STATE 2000-01-01  00:00:00 -1.30934530047542e+05 -4.76229173614420e+06  4.22685466306351e+06 -1.50298385356402e-02  1.11758763456108e-03 -1.98528021614189e-03 
+NLIB STATE 2010-11-11  00:00:00 -1.30934530048000e+05 -4.76229173614420e+06  4.22685466306351e+06 -1.50298385356402e-02  1.11758763456108e-03 -1.98528021614189e-03 
+
+Each field is whitespace delimited:
+
+Field 0:         Station identifier (arbitrary string length)
+Field 1:         Record key, must be 'STATE'
+Field 2:         Date of epoch in calendar format YYYY-MM-DD (year, month, day as integers)
+Field 3: 	 Time of epoch in HH:MM:SS format (hours, minutes, seconds as integers)
+Field 4,5,6:     Position of station in meters at epoch
+Field 7,8,9:     Velocity of station in meters/year, 1year = 365.25*86400 seconds,
+                 valid from the epoch until the next epoch
+Field 10:        Comments starting with '#'
+
+#------------------------------------------------------------------------------
+ANT Records:
+
+ANT records associate the station identifier with the antenna type and 
+site vector at a given epoch. The epoch in this case should refer to the
+time at which the antenna was installed at the site. The site vector
+is assumed to define the vector from the monument to the nominal antenna
+reference location. A few examples:
+
+ADE1 ANT   1995-01-01  00:00:00 ASH700936B_M SNOW     0.000000e+00  0.000000e+00  0.000000e+00 
+ADE2 ANT   1995-01-01  00:00:00 ASH700936B_M SNOW     0.000000e+00  0.000000e+00  0.000000e+00 
+ADIS ANT   2007-06-29  00:00:00 TRM29659.00 NONE      0.000000e+00  0.000000e+00  1.000000e-03 
+ADIS ANT   2008-03-11  07:00:00 TRM29659.00 NONE      0.000000e+00  0.000000e+00  1.000000e-03 
+ADKS ANT   1998-06-17  18:00:00 TRM29659.00 NONE      0.000000e+00  0.000000e+00  0.000000e+00 
+ADKS ANT   2007-02-07  00:00:00 TRM41249.00 NONE      0.000000e+00  0.000000e+00  0.000000e+00 
+
+Each field is whitespace delimited:
+
+Field 0:         Station identifier (arbitrary string length)
+Field 1:         Record key, must be 'ANT'
+Field 2:         Date of epoch in calendar format YYYY-MM-DD (year, month, day as integers) 
+Field 3:         Time of epoch in HH:MM:SS format (hours, minutes, seconds as integers)
+Field 4:         Antenna type
+Field 5:         Radome type
+Field 6,7,8:     Site vector in meters (east, north, vertical)
+Field 9:         Comments starting with '#'
+
+#------------------------------------------------------------------------------
+Other ANT records:
+
+Any other entry starting with ANT is also allowed (e.g. ANTSLR).  Such records 
+are treated identically to the ANT record above.  Note that record must be 
+specified in the KEYWORDS line.  Example:  If a database has ant ANTSLR entry 
+but only has ANT in the KEYWORDS, an error will be thrown on reading.
+
+#------------------------------------------------------------------------------
+ORIENTANT records:
+Specify if an antenna is aligned to a non-standard direction (or explicitly specify a standard direction).
+
+Field 0:         Station identifier (arbitrary string length)
+Field 1:         Record key, must be 'ORIENTANT'
+Field 2:         Date of epoch in calendar format YYYY-MM-DD (year, month, day as integers) 
+Field 3:         Time of epoch in HH:MM:SS format (hours, minutes, seconds as integers)
+Fields 4-6:      unit vector for boresight direction (3x float).
+Fields 7-9:      unit vector for azimuth origin (3x float)
+Field 10:        Comments starting with '#'
+
+Note: If no record present, no orientation information will be written to the
+tree.
+
+#------------------------------------------------------------------------------
+Other ORIENTANT records:
+
+Just like ANT, records can have a suffix such as ORIENTANTSLR to specify the
+antenna information for additional antennas.
+
+#------------------------------------------------------------------------------
+RX Records:
+
+RX records associate the station identifier with receiver type at a given
+epoch. The epoch refers to the time at which the receiver was installed.
+A few examples:
+
+ABMF RX    2011-03-24  06:00:00 TRIMBLE NETR5   
+ABMF RX    2011-08-29  05:00:00 TRIMBLE NETR5  
+ABPO RX    2007-11-16  00:00:00 ASHTECH UZ-12 
+ABPO RX    2011-09-13  18:00:00 ASHTECH UZ-12   
+ADE1 RX    1995-03-20  00:00:00 ASHTECH Z-XII3   
+ADE1 RX    1996-01-01  00:00:00 ASHTECH Z-XII3   
+
+Each field is whitespace delimited:
+
+Field 0:         Station identifier (arbitrary string length)
+Field 1:         Record key, must be 'RX'
+Field 2:         Date of epoch in calendar format YYYY-MM-DD (year, month, day as integers)
+Field 3:         Time of epoch in HH:MM:SS format (hours, minutes, seconds as integers)
+Field 4:         Receiver manufacturer
+Field 5+:         Receiver type
+Meta data:         Comments starting with '#'
+
+
+#------------------------------------------------------------------------------
+AGENCY Records:
+
+Agency records associate the station identifier with the agency responsible for
+the maintenance of the site and associated logs.
+
+A few examples:
+
+ABMF AGENCY 2008-12-29 00:00:00 RGP/IGN
+AOPR AGENCY 2010-01-28 08:01:00 UNAVCO
+AREQ AGENCY 1994-03-29 00:00:00 JPL/UNAVCO/The Arequipa Tracking Station
+
+Each field is whitespace delimited:
+
+Field 0:         Station identifier (arbitrary string length)
+Field 1:         Record key, must be 'AGENCY'
+Field 2:         Date of epoch in calendar format YYYY-MM-DD (year, month, day as integers)
+Field 3:         Time of epoch in HH:MM:SS format (hours, minutes, seconds as integers)
+Field 4+:         Agency/Agencies name at epoch
+
+#------------------------------------------------------------------------------
+NETWORK Records:
+
+Network records associate the station identifier with the largest geodetic
+network it belongs to.
+
+A few examples:
+
+ABMF NETWORK 2008-12-29 00:00:00 IGS
+AOPR NETWORK 2010-01-28 08:01:00 PBO
+
+Each field is whitespace delimited:
+
+Field 0:         Station identifier (arbitrary string length)
+Field 1:         Record key, must be 'NETWORK'
+Field 2:         Date of epoch in calendar format YYYY-MM-DD (year, month, day as integers)
+Field 3:         Time of epoch in HH:MM:SS format (hours, minutes, seconds as integers)
+Field 4:         Network name at epoch
+
+#------------------------------------------------------------------------------
+SIGMAS Records:
+
+Sigmas records associate the station identifier with the site position and velocity
+formal errors at a given epoch
+
+A few examples:
+
+ABMF SIGMAS 2012-01-01 00:00:00 
+
+Each field is whitespace delimited:
+
+Field 0:         Station identifier (arbitrary string length)
+Field 1:         Record key, must be 'SIGMAS'
+Field 2:         Date of epoch in calendar format YYYY-MM-DD (year, month, day as integers)
+Field 3:         Time of epoch in HH:MM:SS format (hours, minutes, seconds as integers)
+Field 4,5,6:     Formal errors of position of station in meters at epoch
+Field 7,8,9:     Formal errors of velocity of station in meters/year at epoch
+Field 10:        Meta data starting with '#'
+
+#------------------------------------------------------------------------------
+END Records:
+
+END records associate the station identifier with the epoch at which the information
+on the site is no longer valid for any reason. The reason can be specified if known. The
+reason for which a site is no longer a reference frame site is often reported in 
+the IGS discontinuity sinex file.
+
+The END records were created to deal with translating the IGS discontinuity 
+file to a station database, but can be used for any type of station database.
+
+An END record can be followed by a STATE record at a later epoch. This could indicate 
+temporary gaps in the availability of the station.
+
+Note that END record cannot appear in random locations!  An END record is
+assumed to be associated with the most recent state read in for a site.
+
+A few examples (from IGb08_sta_db):
+
+AIRA  END    2011-03-11 05:46:23 soln_IGb08.jpl.snx Honshu Earthquake (9.0)
+ANTC  END    2010-02-27 06:34:14 soln_IGb08.jpl.snx Chile Earthquake (8.8)
+ASPA  END    2009-09-29 17:48:10 soln_IGb08.jpl.snx Samoa Island Earthquake (8.0)
+
+Each field is whitespace delimited:
+
+Field 0:         Station identifier (arbitrary string length)
+Field 1:         Record key, must be 'END'
+Field 2:         Date of epoch in calendar format YYYY-MM-DD (year, month, day as integers)
+Field 3:         Time of epoch in HH:MM:SS format (hours, minutes, seconds as integers)
+Field 4+:	 Free format, source of information, cause of gap or discontinuity.
+
+#------------------------------------------------------------------------------
+POSTSEISMIC[EXP|LOG]_[E|N|V] record
+
+Record designed to hold records of post seismic deformation per ITRF2014.
+
+Note that meta data is not allowed for this record in the sta_db file.  
+If there is any meta data (with a "#") it will be discarded upon ingestion
+
+Field 0: Station identified
+Field 1: Record key, must be "POSTSEISMIC[EXP|LOG]_[E|N|V]" e.g. 
+         POSTSEISMICEXP_E would be exponential terms in the East component
+Field 2: Date of epoch in calendar format YYYY-MM-DD (year, month, day as integers)
+Field 3: Time of epoch in HH:MM:SS format (hours, minutes, seconds as integers)
+Field 4+2i:  Amplitude of term i 
+Field 5+2i:  Decay time term of i
+
+The full equation for the post seismic correction is:
+
+dPos_E=sum(aExp_i*(1-exp(-dt/tExp_i)))+sum(aLog_i*(1+dt/tLog_i))
+
+
+Example: AREQ East component from psd_IGS14.snx
+
+AREQ POSTSEISMICEXP_E 2001-06-23 20:33:14 -3.32811144355674e-02 8.98517216046329e-02
+AREQ POSTSEISMICEXP_E 2001-07-07 09:38:44 -2.17611098995008e-01 8.65824481774368e+00 -4.61010343417456e-02 7.25826799649531e-01 
+
+No East correction before  2001-06-23 20:33:14.
+
+Resulting east correction b/w  2001-06-23 20:33:14 and 2001-07-07 09:38:44:
+dE=-3.32811144355674e-02*(1-exp(-(t-2001-06-23 20:33:14)/8.98517216046329e-02))
+
+Resulting east correction in m for any date after 2001-07-07 09:38:44:
+dE=-3.32811144355674e-02*(1-exp(-(t-2001-06-23 20:33:14)/8.98517216046329e-02))\
+   -2.17611098995008e-01*(1-exp(-(t-2001-07-07 09:38:44)/8.65824481774368e+00))\
+   -4.61010343417456e-02*(1-exp(-(t-2001-07-07 09:38:44)/7.25826799649531e-01))
+
+note: dt is in years=365.25 days, amplitude in m
+
+For a full description of the equations, please see:
+
+ftp://itrf.ign.fr/pub/itrf/itrf2014/ITRF2014-PSD-model-eqs-IGN.pdf
+
+#------------------------------------------------------------------------------
+
+SEASONAL_ITRF Records:
+
+ITRF seasonals.  ITRF seasonals are defined as sin/cos functions of the fractional year, i.e. t = doy / 365.25.  There are a total of 12 for each site, 3x coordinates (XYZ) x 2 freqs (annual, semi-annual = 0.5 year period) x 2 trig fuctions (a=cos, b=sin)
+
+so, dX would be a_1*cos(2*pi*t)+b_1*sin(2*pi*t)+a_2*cos(4*pi*t)+b_2*sin(4*pi*t), where t is the day of year/365.25.  These four X coefficients would be the first four numerical entries for this type of record, followed by 4 Y, and 4 Z. Coefficients may be zero.
+
+Units of coefficients are m, may be supplied from frame in other units (mm)
+
+Field 0:         Station identifier (arbitrary string length)
+Field 1:         Record key, must be 'SEASONAL_ITRF'
+Field 2:         Date of epoch in calendar format YYYY-MM-DD (year, month, day as integers)
+Field 3:         Time of epoch in HH:MM:SS format (hours, minutes, seconds as integers)
+Field 4-15:      12 seasonal coefficients, as described in the order above, units of m
+
+
+#------------------------------------------------------------------------------
+LINK Records:
+
+Information records for maintaining the database. Typically checked
+by scripts maintaining the station database from information such as
+IGS site logs.
+
+A few examples:
+
+AREQ  LINK  AREV  2009-01-01  9999-12-31
+AREV  LINK  AREQ  2009-01-01  9999-12-31
+DGAR  LINK  DGAV  2009-01-01  9999-12-31
+DGAV  LINK  DGAR  2009-01-01  9999-12-31
+JPLM  LINK  JPM2  2009-01-01  9999-12-31
+KOKB  LINK  KOKV  2009-01-01  9999-12-31
+KOKV  LINK  KOKB  2009-01-01  9999-12-31
+NLIV  LINK  NLIB  2010-01-01  9999-12-31
+POL2  LINK  POLJ  2009-01-01  9999-12-31
+POLJ  LINK  POL2  2009-01-01  9999-12-31
+
+Each field is whitespace delimited:
+
+Field 0:         Station identifier for the station maintained with external 
+                 information. For example IGS sitelogs.
+Field 1:         Record key, must be 'LINK'
+Field 2:         Station identifier of "LINKED" info, for instance 
+                 ANT records should be identical. Operator intervention
+                 has typically been required for database maintenance.
+Field 3,4:       Calendar date for the beginning and end of this records 
+                 applicability.
+
+#------------------------------------------------------------------------------
+SYSTEMS Records:
+
+Information records for determining which constellations are tracked by the site.
+Typically determined by scripts maintaining the station database from information 
+such as IGS site logs. The initial set of system strings were chosen to be
+consistent with the IGS site logs.
+
+Current recognized systems (strings):
+
+ GPS   : US Global Positioning System
+ GLO   : Russian GLONASS
+ GAL   : European Galileo
+ BDS   : China Beidou
+ QZSS  : Japan SBAS (Space Based Augmentation System)
+ IRNSS : Indian SBAS
+ SBAS  : used for both WAAS (US Wide Area Augmentation System and the European EGNOS)
+
+A few examples:
+
+YELL SYSTEMS 1991-01-21 00:00:00 GPS GLO GAL
+YKRO SYSTEMS 1999-07-18 00:00:00 GPS
+YSSK SYSTEMS 1999-07-28 00:00:00 GPS
+ZAMB SYSTEMS 2002-06-02 00:00:00 GPS
+ZIM2 SYSTEMS 2015-08-13 00:00:00 GPS GLO GAL BDS
+ZIM3 SYSTEMS 2014-02-21 00:00:00 GPS GLO GAL BDS QZSS SBAS
+ZIMJ SYSTEMS 2014-10-24 00:00:00 GPS GLO GAL SBAS
+ZWE2 SYSTEMS 2007-06-13 00:00:00 GPS
+
+Each field is whitespace delimited:
+
+Field 0:         Station identifier for the station maintained with external
+                 information. For example IGS sitelogs.
+Field 1:         Record key, must be "SYSTEMS"
+Field 2:         Date of epoch in calendar format YYYY-MM-DD (year, month, day as integers)
+Field 3:         Time of epoch in HH:MM:SS format (hours, minutes, seconds as integers)
+Field 4:         Approved abbreviation(s) of tracked constellation(s) delimited by white space
+                 with no ordering restrictions.  
+Field 5+: Meta data beginning with a "#" 
+
+\endverbatim
+
+*/
+
